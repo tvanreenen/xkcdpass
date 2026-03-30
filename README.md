@@ -80,15 +80,32 @@ just run -- --words 6
 
 ## Releasing
 
-Create release archives and checksums locally:
+Run the full release pipeline in one command:
 
 ```sh
 just release v0.1.0
 ```
 
-That command builds `darwin/arm64` (Apple Silicon) and `linux/amd64` binaries, then writes versioned `tar.gz` archives and `checksums.txt` to `dist/`. Intel Macs and other arches need `go build` from source.
+`just release` runs three stages in order:
 
-Upload those artifacts to GitHub Releases manually or with your own later automation, then update the formula in `tvanreenen/tap`.
+1. `release-build`: builds `darwin/arm64` (Apple Silicon) and `linux/amd64` binaries, then writes versioned `tar.gz` archives and `checksums.txt` to `dist/`.
+2. `release-publish`: creates a published GitHub release and uploads those artifacts.
+3. `release-tap`: updates `~/Code/homebrew-tap/Formula/xkcdpass.rb`, then commits and pushes that tap repo.
+
+If a later stage fails, rerun only that stage:
+
+```sh
+just release-publish v0.1.0
+just release-tap v0.1.0
+```
+
+You can also run build-only when iterating:
+
+```sh
+just release-build v0.1.0
+```
+
+`release-tap` assumes the tap formula exists at `~/Code/homebrew-tap/Formula/xkcdpass.rb`. Intel Macs and other arches need `go build` from source.
 
 ## Wordlist attribution
 
