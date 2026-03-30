@@ -55,3 +55,21 @@ done
 )
 
 echo "release artifacts written to ${dist_dir}"
+
+if ! command -v gh >/dev/null 2>&1; then
+  echo "gh CLI is required to create a draft GitHub release" >&2
+  exit 1
+fi
+
+if gh release view "${version}" >/dev/null 2>&1; then
+  echo "GitHub release ${version} already exists; refusing to overwrite" >&2
+  exit 1
+fi
+
+echo "creating draft GitHub release ${version}"
+gh release create "${version}" \
+  "${dist_dir}/${binary_name}_${version}_"*.tar.gz \
+  "${dist_dir}/checksums.txt" \
+  --draft \
+  --title "${version}" \
+  --generate-notes
