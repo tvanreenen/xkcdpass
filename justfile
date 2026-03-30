@@ -1,7 +1,5 @@
-set shell := ["zsh", "-cu"]
-
 default:
-  @just --list
+  @just --list --unsorted
 
 test:
   GOCACHE={{justfile_directory()}}/.gocache go test ./...
@@ -14,3 +12,6 @@ run *args:
 
 release version:
   ./scripts/release.sh {{version}}
+
+clean:
+  rm -rf dist .gocache xkcdpass
