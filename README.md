@@ -6,25 +6,9 @@
 
 `xkcdpass` is a small Go CLI that generates xkcd-style passphrases from the embedded EFF large wordlist using cryptographically secure randomness.
 
-By default, `xkcdpass` prints **4 random words from the list run together** with no delimiter—the same shape as the password in the comic (`correcthorsebatterystaple`). Use `--separator` if you want hyphens, spaces, or another delimiter for readability. Four words is a familiar default, but it is not the strongest setting this tool supports. Bit estimates below assume the wordlist and word count are public; security rests in the random words, not in hiding which tool you used.
+By default, it prints 4 random lowercase words concatenated with no separator, in the style of `correcthorsebatterystaple`.
 
-## Security model
-
-- **Entropy source:** Go's `crypto/rand`, backed by the operating system CSPRNG—not `math/rand`, which is unsuitable for secrets.
-- **Uniform words:** Each word is an independent, uniformly random draw from the full embedded list (the same word may appear more than once). Indices come from `crypto/rand.Int`, which avoids modulo bias you get when shrinking random bytes with `% len(list)` and the list length is not a power of two.
-- **Flat phrase space:** No templates, grammatical rules, or frequency weighting—those steer output toward a smaller or more predictable set of phrases than uniform words from the whole list.
-- **Formatting:** Lowercase words are fixed; an optional separator between words does not add entropy.
-
-### Passphrase strength
-
-The EFF large wordlist is public, so strength is quoted the way passphrase tools usually do: treat the list and the number of words as known, and measure what is left to guess—the specific sequence of words. Each independent uniform word adds about 12.9 bits (`log2(7776)`). For *n* words, that is *n* times as much altogether (`log2(7776^n)` bits).
-
-Examples with the embedded 7,776-word list and a known word count:
-
-- 4 words: about 51.7 bits
-- 6 words: about 77.6 bits
-
-Use `--words 6` for stronger real-world usage.
+The comic is a simple lesson in information theory: what feels obscure is not always hard to guess. Counterintuitive as it may seem, a few memorable words from a known list can be stronger than the convoluted strings typical password rules require.
 
 ## Installation
 
@@ -40,7 +24,7 @@ brew install xkcdpass
 ### Build locally
 
 ```sh
-go build ./cmd/xkcdpass
+go build -o xkcdpass ./cmd/xkcdpass
 ```
 
 ## Usage
@@ -67,6 +51,24 @@ xkcdpass --separator -
 ```text
 washroom-unquoted-zebra-velocity
 ```
+
+## Security model
+
+- **Entropy source:** Go's `crypto/rand`, backed by the operating system CSPRNG—not `math/rand`, which is unsuitable for secrets.
+- **Uniform words:** Each word is an independent, uniformly random draw from the full embedded list (the same word may appear more than once). Indices come from `crypto/rand.Int`, which avoids modulo bias you get when shrinking random bytes with `% len(list)` and the list length is not a power of two.
+- **Flat phrase space:** No templates, grammatical rules, or frequency weighting—those steer output toward a smaller or more predictable set of phrases than uniform words from the whole list.
+- **Formatting:** Lowercase words are fixed; an optional separator between words does not add entropy.
+
+### Passphrase strength
+
+The EFF large wordlist is public, so strength is quoted the way passphrase tools usually do: treat the list and the number of words as known, and measure what is left to guess—the specific sequence of words. Each independent uniform word adds about 12.9 bits (`log2(7776)`). For *n* words, that is *n* times as much altogether (`log2(7776^n)` bits).
+
+Examples with the embedded 7,776-word list and a known word count:
+
+- 4 words: about 51.7 bits
+- 6 words: about 77.6 bits
+
+Use `--words 6` for stronger real-world usage.
 
 For development and release workflows, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
