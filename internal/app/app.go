@@ -27,12 +27,7 @@ func Run(args []string, stdout, stderr io.Writer, version string) int {
 		return 0
 	}
 
-	words, err := wordlist.Words()
-	if err != nil {
-		fmt.Fprintf(stderr, "xkcdpass: %v\n", err)
-		return 1
-	}
-
+	words := wordlist.Words()
 	passphrase, err := generator.Generate(rand.Reader, words, config.Words, config.Separator)
 	if err != nil {
 		fmt.Fprintf(stderr, "xkcdpass: %v\n", err)
