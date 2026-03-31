@@ -14,24 +14,14 @@ var rawWords string
 var (
 	loadOnce    sync.Once
 	cachedWords []string
-	cachedErr   error
 )
 
-func Words() ([]string, error) {
+func Words() []string {
 	loadOnce.Do(func() {
-		words := strings.Split(strings.TrimSpace(rawWords), "\n")
-		if err := Validate(words); err != nil {
-			cachedErr = err
-			return
-		}
-		cachedWords = words
+		cachedWords = strings.Split(strings.TrimSpace(rawWords), "\n")
 	})
 
-	if cachedErr != nil {
-		return nil, cachedErr
-	}
-
-	return cachedWords, nil
+	return cachedWords
 }
 
 func Validate(words []string) error {

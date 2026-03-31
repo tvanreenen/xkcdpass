@@ -14,10 +14,7 @@ type segKey struct {
 
 func canSegmentIntoNEmbeddedWords(t *testing.T, s string, wantWords int) bool {
 	t.Helper()
-	words, err := wordlist.Words()
-	if err != nil {
-		t.Fatalf("Words() error = %v", err)
-	}
+	words := wordlist.Words()
 	byFirst := make(map[byte][]string, 32)
 	for _, w := range words {
 		if w == "" {

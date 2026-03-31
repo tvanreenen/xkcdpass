@@ -9,10 +9,7 @@ import (
 )
 
 func TestGenerateProducesRequestedWordCount(t *testing.T) {
-	words, err := wordlist.Words()
-	if err != nil {
-		t.Fatalf("Words() error = %v", err)
-	}
+	words := wordlist.Words()
 
 	passphrase, err := Generate(rand.Reader, words, 6, "_")
 	if err != nil {
@@ -50,5 +47,20 @@ func TestGenerateEmptySeparator(t *testing.T) {
 	}
 	if want := "onlyonlyonlyonly"; passphrase != want {
 		t.Fatalf("passphrase = %q, want %q", passphrase, want)
+	}
+}
+
+func BenchmarkGenerate4Words(b *testing.B) {
+	words := wordlist.Words()
+
+	b.ReportAllocs()
+	for b.Loop() {
+		passphrase, err := Generate(rand.Reader, words, 4, "")
+		if err != nil {
+			b.Fatalf("Generate() error = %v", err)
+		}
+		if passphrase == "" {
+			b.Fatal("Generate() returned empty passphrase")
+		}
 	}
 }
