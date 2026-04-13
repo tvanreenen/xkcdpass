@@ -12,16 +12,23 @@ The comic is a simple lesson in information theory: what feels obscure is not al
 
 ## Installation
 
-### Homebrew
-
-Once the formula is published to your tap:
+On supported published platforms, install with Homebrew:
 
 ```sh
 brew tap tvanreenen/tap
 brew install xkcdpass
 ```
 
-### Build locally
+Published Homebrew release artifacts are currently available for:
+
+- macOS Apple Silicon (`darwin/arm64`)
+- Linux x86_64 (`linux/amd64`), including typical x86_64 WSL environments
+
+For other platforms, build from source locally:
+
+- macOS Intel (`darwin/amd64`)
+- Linux ARM64 (`linux/arm64`)
+- Windows native
 
 ```sh
 go build -o xkcdpass ./cmd/xkcdpass
