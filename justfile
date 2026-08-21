@@ -1,26 +1,34 @@
+export GOCACHE := justfile_directory() / ".gocache"
+
 default:
-  @just --list --unsorted
+    @just --list --unsorted
 
 test:
-  GOCACHE={{justfile_directory()}}/.gocache go test ./...
+    go test ./...
 
 build:
-  GOCACHE={{justfile_directory()}}/.gocache go build ./cmd/xkcdpass
+    go build ./cmd/xkcdpass
 
+[positional-arguments]
+[script]
 run *args:
-  GOCACHE={{justfile_directory()}}/.gocache go run ./cmd/xkcdpass -- {{args}}
+    if [ "${1:-}" = "--" ]; then
+      shift
+    fi
+
+    go run ./cmd/xkcdpass "$@"
 
 release version:
-  ./scripts/release.sh all {{version}}
+    ./scripts/release.sh all {{ version }}
 
 release-build version:
-  ./scripts/release.sh build {{version}}
+    ./scripts/release.sh build {{ version }}
 
 release-publish version:
-  ./scripts/release.sh publish {{version}}
+    ./scripts/release.sh publish {{ version }}
 
 release-tap version:
-  ./scripts/release.sh tap {{version}}
+    ./scripts/release.sh tap {{ version }}
 
 clean:
-  rm -rf dist .gocache xkcdpass
+    rm -rf dist .gocache xkcdpass
