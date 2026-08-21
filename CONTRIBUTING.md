@@ -10,6 +10,8 @@ just build
 just run -- --words 6
 ```
 
+Local builds report `dev` for `--version`. Release builds report the release tag injected by the existing release script.
+
 If you prefer running Go commands directly, use repo-local caches to avoid polluting global state and to keep behavior consistent with the `just` tasks:
 
 ```sh
