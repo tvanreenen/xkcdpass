@@ -12,6 +12,11 @@ on:
         type: choice
         options:
           - build
+          - release
+      version:
+        description: v-prefixed Semantic Version (required for release; ignored for build)
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -22,10 +27,45 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     outputs:
-      version: dev-${{ github.sha }}
-      artifact_name: xkcdpass_dev-${{ github.sha }}
+      version: ${{ steps.distribution.outputs.version }}
+      artifact_name: ${{ steps.distribution.outputs.artifact_name }}
 
     steps:
+      - name: Validate distribution request
+        id: distribution
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          OPERATION: ${{ inputs.operation }}
+          REF: ${{ github.ref }}
+          RELEASE_VERSION: ${{ inputs.version }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          if [[ "${OPERATION}" == "build" ]]; then
+            version="dev-${SHA}"
+            goreleaser_args="release --snapshot --clean"
+          elif [[ "${OPERATION}" == "release" ]]; then
+            semver='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(\+([0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*))?$'
+            if [[ ! "${RELEASE_VERSION}" =~ ${semver} ]]; then
+              echo "release version must be a valid v-prefixed Semantic Version" >&2
+              exit 1
+            fi
+            if [[ "${REF}" != "refs/heads/${DEFAULT_BRANCH}" ]]; then
+              echo "releases must be dispatched from the default branch (${DEFAULT_BRANCH})" >&2
+              exit 1
+            fi
+            version="${RELEASE_VERSION}"
+            goreleaser_args="release --clean --skip=publish"
+          else
+            echo "unsupported distribution operation: ${OPERATION}" >&2
+            exit 1
+          fi
+
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "artifact_name=xkcdpass_${version}" >> "${GITHUB_OUTPUT}"
+          echo "goreleaser_args=${goreleaser_args}" >> "${GITHUB_OUTPUT}"
+
       - name: Check out selected commit
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -45,24 +85,59 @@ jobs:
 
       - name: Build and package supported platforms
         uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
+        env:
+          GORELEASER_CURRENT_TAG: ${{ inputs.operation == 'release' && steps.distribution.outputs.version || '' }}
         with:
           distribution: goreleaser
           version: v2.17.1
-          args: release --snapshot --clean
+          args: ${{ steps.distribution.outputs.goreleaser_args }}
 
       - name: Verify packaged artifacts
         env:
-          VERSION: dev-${{ github.sha }}
+          VERSION: ${{ steps.distribution.outputs.version }}
         run: ./scripts/verify-distribution.sh "${VERSION}"
 
-      - name: Upload development artifacts
+      - name: Upload distribution artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: xkcdpass_dev-${{ github.sha }}
+          name: ${{ steps.distribution.outputs.artifact_name }}
           path: |
-            dist/xkcdpass_dev-${{ github.sha }}_darwin_arm64.tar.gz
-            dist/xkcdpass_dev-${{ github.sha }}_linux_amd64.tar.gz
+            dist/xkcdpass_${{ steps.distribution.outputs.version }}_darwin_arm64.tar.gz
+            dist/xkcdpass_${{ steps.distribution.outputs.version }}_linux_amd64.tar.gz
             dist/checksums.txt
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
+
+  publish:
+    name: Publish GitHub release
+    if: inputs.operation == 'release'
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    environment: release
+    concurrency:
+      group: xkcdpass-release-${{ needs.build.outputs.version }}
+      queue: max
+
+    steps:
+      - name: Check out release automation
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Download this run's release artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ needs.build.outputs.artifact_name }}
+          path: dist
+
+      - name: Reconcile draft assets and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ needs.build.outputs.version }}
+          TARGET_SHA: ${{ github.sha }}
+        run: ./.github/scripts/publish-release.sh "${RELEASE_VERSION}" "${TARGET_SHA}" "dist"
