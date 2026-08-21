@@ -57,6 +57,18 @@ The timing loop is only for manual performance checks. It is not part of the nor
 
 ## Releases
 
+### Manual development builds
+
+After the distribution workflow is present on the default branch, open **Actions → Distribution → Run workflow**, select the ref to build, leave the operation set to `build`, and start the run. The same build can be started with GitHub CLI:
+
+```sh
+gh workflow run distribution.yml --ref <branch-or-tag> -f operation=build
+```
+
+When the run succeeds, download the `xkcdpass_dev-<commit-sha>` workflow artifact from its summary page. It contains the `darwin/arm64` and `linux/amd64` archives plus `checksums.txt`, and is retained for 14 days. With GitHub CLI, use `gh run download <run-id> --name xkcdpass_dev-<commit-sha>`.
+
+### Local release workflow
+
 Release automation is handled through the existing `just` targets.
 
 Use the full release command for the normal end-to-end flow:

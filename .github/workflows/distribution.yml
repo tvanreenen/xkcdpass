@@ -1,0 +1,68 @@
+name: Distribution
+
+run-name: Distribution ${{ inputs.operation }} for ${{ github.ref_name }} at ${{ github.sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Distribution operation
+        required: true
+        default: build
+        type: choice
+        options:
+          - build
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Test, build, and package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      version: dev-${{ github.sha }}
+      artifact_name: xkcdpass_dev-${{ github.sha }}
+
+    steps:
+      - name: Check out selected commit
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Go from go.mod
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: Test
+        run: go test ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build and package supported platforms
+        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
+        with:
+          distribution: goreleaser
+          version: v2.17.1
+          args: release --snapshot --clean
+
+      - name: Verify packaged artifacts
+        env:
+          VERSION: dev-${{ github.sha }}
+        run: ./scripts/verify-distribution.sh "${VERSION}"
+
+      - name: Upload development artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: xkcdpass_dev-${{ github.sha }}
+          path: |
+            dist/xkcdpass_dev-${{ github.sha }}_darwin_arm64.tar.gz
+            dist/xkcdpass_dev-${{ github.sha }}_linux_amd64.tar.gz
+            dist/checksums.txt
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
