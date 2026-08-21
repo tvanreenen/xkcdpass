@@ -44,7 +44,6 @@ jobs:
 
           if [[ "${OPERATION}" == "build" ]]; then
             version="dev-${SHA}"
-            goreleaser_args="release --snapshot --clean"
           elif [[ "${OPERATION}" == "release" ]]; then
             semver='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(\+([0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*))?$'
             if [[ ! "${RELEASE_VERSION}" =~ ${semver} ]]; then
@@ -56,15 +55,14 @@ jobs:
               exit 1
             fi
             version="${RELEASE_VERSION}"
-            goreleaser_args="release --clean --skip=publish"
           else
             echo "unsupported distribution operation: ${OPERATION}" >&2
             exit 1
           fi
 
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "goreleaser_version=${version#v}" >> "${GITHUB_OUTPUT}"
           echo "artifact_name=xkcdpass_${version}" >> "${GITHUB_OUTPUT}"
-          echo "goreleaser_args=${goreleaser_args}" >> "${GITHUB_OUTPUT}"
 
       - name: Check out selected commit
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -86,11 +84,13 @@ jobs:
       - name: Build and package supported platforms
         uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
         env:
-          GORELEASER_CURRENT_TAG: ${{ inputs.operation == 'release' && steps.distribution.outputs.version || '' }}
+          XKCDPASS_ARTIFACT_VERSION: ${{ steps.distribution.outputs.version }}
+          XKCDPASS_GORELEASER_VERSION: ${{ steps.distribution.outputs.goreleaser_version }}
         with:
           distribution: goreleaser
           version: v2.17.1
-          args: ${{ steps.distribution.outputs.goreleaser_args }}
+          # Snapshot mode packages the selected commit without requiring or publishing a tag.
+          args: release --snapshot --clean
 
       - name: Verify packaged artifacts
         env:
