@@ -128,6 +128,26 @@ fetch_release() {
   fi
 }
 
+# A new draft can briefly lag behind gh release create in the releases-list API.
+wait_for_created_release() {
+  local attempt delay_seconds
+
+  delay_seconds=1
+  for ((attempt = 1; attempt <= 5; attempt += 1)); do
+    fetch_release
+    if [[ "${release_exists}" == "true" ]]; then
+      return 0
+    fi
+    if ((attempt < 5)); then
+      echo "draft release ${version} is not visible yet; retrying in ${delay_seconds}s" >&2
+      sleep "${delay_seconds}"
+      ((delay_seconds *= 2))
+    fi
+  done
+
+  fail "GitHub did not make the expected draft release visible"
+}
+
 fetch_tag() {
   if fetch_optional "repos/${repository}/git/ref/tags/${version}" "${tag_json}"; then
     tag_exists=true
@@ -236,9 +256,8 @@ else
   fi
   gh "${create_args[@]}"
 
-  fetch_release
+  wait_for_created_release
   fetch_tag
-  [[ "${release_exists}" == "true" ]] || fail "GitHub did not create the expected draft release"
   verify_draft_metadata
   if [[ "${tag_exists}" == "true" ]]; then
     [[ "$(resolve_tag_commit)" == "${target_sha}" ]] ||
