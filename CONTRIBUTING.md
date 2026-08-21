@@ -10,7 +10,7 @@ just build
 just run -- --words 6
 ```
 
-Local builds report `dev` for `--version`. Release builds report the release tag injected by the existing release script.
+Local builds report `dev` for `--version`. Distribution builds inject either a development identifier or the requested release tag through the `main.version` linker flag.
 
 If you prefer running Go commands directly, use repo-local caches to avoid polluting global state and to keep behavior consistent with the `just` tasks:
 
@@ -57,6 +57,15 @@ The timing loop is only for manual performance checks. It is not part of the nor
 
 ## Releases
 
+### Repository setup for releases
+
+Before the first release, a repository administrator must complete two settings:
+
+1. Under **Settings → Environments**, create an environment named `release`. Restrict its deployment branches to the default `main` branch and configure the required reviewers. Preventing self-review is recommended when more than one maintainer is available.
+2. Under **Settings → General → Releases**, enable release immutability. GitHub applies this only to releases published after the setting is enabled.
+
+Keep the repository's default Actions token permissions read-only. The workflow grants `contents: write` only to the environment-gated publishing job; `GITHUB_TOKEN` is sufficient, and no repository secret or cross-repository token is needed.
+
 ### Manual development builds
 
 After the distribution workflow is present on the default branch, open **Actions → Distribution → Run workflow**, select the ref to build, leave the operation set to `build`, and start the run. The same build can be started with GitHub CLI:
@@ -65,28 +74,31 @@ After the distribution workflow is present on the default branch, open **Actions
 gh workflow run distribution.yml --ref <branch-or-tag> -f operation=build
 ```
 
-When the run succeeds, download the `xkcdpass_dev-<commit-sha>` workflow artifact from its summary page. It contains the `darwin/arm64` and `linux/amd64` archives plus `checksums.txt`, and is retained for 14 days. With GitHub CLI, use `gh run download <run-id> --name xkcdpass_dev-<commit-sha>`.
+The version input is not required in build mode and is ignored if supplied. When the run succeeds, download the `xkcdpass_dev-<commit-sha>` workflow artifact from its summary page. It contains the `darwin/arm64` and `linux/amd64` archives plus `checksums.txt`, and is retained for 14 days. With GitHub CLI, use `gh run download <run-id> --name xkcdpass_dev-<commit-sha>`.
 
-### Local release workflow
+Use build mode as the release dry run: dispatch it from the intended `main` commit, confirm tests and vet pass, inspect both packaged binaries and `checksums.txt`, and confirm the smoke checks in the log. Release mode runs that same test, vet, GoReleaser build matrix, packaging, checksum, and smoke-check path again with the release version injected.
 
-Release automation is handled through the existing `just` targets.
+### Publishing a release
 
-Use the full release command for the normal end-to-end flow:
-
-```sh
-just release v0.1.0
-```
-
-That command runs the three release stages in order:
-
-- `just release-build v0.1.0`
-- `just release-publish v0.1.0`
-- `just release-tap v0.1.0`
-
-Use the individual stage commands only when a later stage fails or when you need to rerun one part of the pipeline without repeating the earlier successful stages:
+Open **Actions → Distribution → Run workflow**, select the default `main` branch, choose `release`, and enter a release version. The equivalent CLI dispatch is:
 
 ```sh
-just release-build v0.1.0
-just release-publish v0.1.0
-just release-tap v0.1.0
+gh workflow run distribution.yml --ref main -f operation=release -f version=v0.1.1
 ```
+
+Release versions must be valid v-prefixed Semantic Versions such as `v0.1.1`, `v0.1.1-rc.1`, or `v0.1.1-rc.1+build.2`. Leading zeroes, missing components, whitespace, and unsafe tag characters are rejected before any release write. Release dispatches from branches or tags other than the repository's default branch are also rejected.
+
+After the build artifact is uploaded, the publishing job waits for approval on the `release` environment. Before approving, confirm the requested version, workflow commit, and completed build logs. The publishing job uses only the archives and checksum file uploaded by that same workflow run. It does not rebuild, download from an earlier run, update another repository, or use checkout credentials to push.
+
+Publication is draft-first. The job preflights the version's release and tag state, creates a generated-notes draft targeted at the exact workflow commit when none exists, uploads the expected assets, verifies their SHA-256 digests and complete asset set, and only then publishes. Semantic Version prereleases are marked as GitHub prereleases. Once published, the workflow treats the release as immutable and refuses to update it; repository release immutability locks its tag and assets on GitHub as well.
+
+Runs for the same release version are queued instead of canceled. If a run stops after creating a draft or uploading only some assets, rerun the same version from the same `main` commit. A matching draft is reconciled: identical assets are retained and missing or incomplete assets are replaced from the new run before publication. The workflow refuses an existing published release, an unexpected draft asset, a draft with different metadata or target commit, or a tag pointing at another commit. Inspect such state manually; only delete an unpublished draft or tag after confirming it is safe to abandon, then dispatch again.
+
+For extra validation, an optional release sequence is:
+
+1. Dispatch `v0.1.1-rc.1`, approve it, and test the published prerelease assets.
+2. Dispatch `v0.1.1` from the desired current `main` commit and approve the stable release independently.
+
+Each version receives its own tag, assets, release notes, approval, and non-canceling concurrency group.
+
+Homebrew tap automation is intentionally deferred to PR 4. This workflow does not update the tap and must not be given a cross-repository token.
