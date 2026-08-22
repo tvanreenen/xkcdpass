@@ -2,7 +2,7 @@
 
 ## Development setup
 
-This project uses `just` for the common local workflows and keeps Go caches inside the repo when invoked through those commands.
+This project uses `just` for the common local workflows. Those recipes keep Go's build cache in `.gocache` inside the repo and leave the module cache at Go's configured default.
 
 ```sh
 just test
@@ -12,16 +12,16 @@ just run -- --words 6
 
 Local builds report `dev` for `--version`. Distribution builds inject either a development identifier or the requested release tag through the `main.version` linker flag.
 
-If you prefer running Go commands directly, use repo-local caches to avoid polluting global state and to keep behavior consistent with the `just` tasks:
+If you prefer running Go commands directly, set `GOCACHE` to keep behavior consistent with the `just` tasks:
 
 ```sh
-GOCACHE=$PWD/.gocache GOMODCACHE=$PWD/.gomodcache go test ./...
-GOCACHE=$PWD/.gocache GOMODCACHE=$PWD/.gomodcache go build ./cmd/xkcdpass
+GOCACHE=$PWD/.gocache go test ./...
+GOCACHE=$PWD/.gocache go build ./cmd/xkcdpass
 ```
 
 ## Tests
 
-Regular tests run with `go test ./...` and include validation of the embedded EFF wordlist. That means CI still checks:
+Regular tests run with `go test ./...` and include validation of the embedded EFF wordlist. A normal test run checks:
 
 - the list contains exactly 7,776 entries
 - entries are lowercase
@@ -37,29 +37,28 @@ Benchmarks are opt-in and do not run under a normal `go test ./...`.
 To run the benchmark coverage for the startup-sensitive paths:
 
 ```sh
-GOCACHE=$PWD/.gocache GOMODCACHE=$PWD/.gomodcache go test -bench . -benchmem ./internal/wordlist ./internal/generator
+GOCACHE=$PWD/.gocache go test -bench . -benchmem ./internal/wordlist ./internal/passphrase
 ```
 
 This runs:
 
 - `BenchmarkWords`
-- `BenchmarkValidate`
 - `BenchmarkGenerate4Words`
 
 To measure end-to-end CLI startup time locally:
 
 ```sh
-GOCACHE=$PWD/.gocache GOMODCACHE=$PWD/.gomodcache go build -o xkcdpass ./cmd/xkcdpass
+GOCACHE=$PWD/.gocache go build -o xkcdpass ./cmd/xkcdpass
 time sh -c 'i=0; while [ $i -lt 500 ]; do ./xkcdpass >/dev/null; i=$((i+1)); done'
 ```
 
-The timing loop is only for manual performance checks. It is not part of the normal test suite or CI.
+The timing loop is only for manual performance checks. It is not part of the normal test suite or distribution workflow.
 
 ## Releases
 
 ### Repository setup for releases
 
-Before the first release, a repository administrator must complete two settings:
+Repository administrators should keep two release settings configured:
 
 1. Under **Settings → Environments**, create an environment named `release`. Restrict its deployment branches to the default `main` branch and configure the required reviewers. Preventing self-review is recommended when more than one maintainer is available.
 2. Under **Settings → General → Releases**, enable release immutability. GitHub applies this only to releases published after the setting is enabled.
@@ -83,10 +82,10 @@ Use build mode as the release dry run: dispatch it from the intended `main` comm
 From a current `main` checkout, dispatch the source release with:
 
 ```sh
-just release v0.1.1
+just release v1.2.3
 ```
 
-This validates the version locally and dispatches `distribution.yml` on `main` through your existing GitHub CLI login. You can also open **Actions → Distribution → Run workflow**, select `main`, choose `release`, and enter the version. Release versions must be valid v-prefixed Semantic Versions such as `v0.1.1`, `v0.1.1-rc.1`, or `v0.1.1-rc.1+build.2`. Leading zeroes, missing components, whitespace, and unsafe tag characters are rejected before any release write. Release dispatches from branches or tags other than the repository's default branch are also rejected.
+Replace the illustrative `v1.2.3` with the version being published. The command validates the version locally and dispatches `distribution.yml` on `main` through your existing GitHub CLI login. You can also open **Actions → Distribution → Run workflow**, select `main`, choose `release`, and enter the version. Release versions must be valid v-prefixed Semantic Versions such as `v1.2.3`, `v1.2.3-rc.1`, or `v1.2.3-rc.1+build.2`. Leading zeroes, missing components, whitespace, and unsafe tag characters are rejected before any release write. Release dispatches from branches or tags other than the repository's default branch are also rejected.
 
 After the build artifact is uploaded, the publishing job waits for approval on the `release` environment. Before approving, confirm the requested version, workflow commit, and completed build logs. The publishing job uses only the archives and checksum file uploaded by that same workflow run. It does not rebuild, download from an earlier run, update another repository, or use checkout credentials to push.
 
@@ -96,8 +95,8 @@ Runs for the same release version are queued instead of canceled. If a run stops
 
 For extra validation, an optional release sequence is:
 
-1. Dispatch `v0.1.1-rc.1`, approve it, and test the published prerelease assets.
-2. Dispatch `v0.1.1` from the desired current `main` commit and approve the stable release independently.
+1. Dispatch an illustrative prerelease such as `v1.2.3-rc.1`, approve it, and test the published prerelease assets.
+2. Dispatch its stable counterpart, such as `v1.2.3`, from the desired current `main` commit and approve it independently.
 
 Each version receives its own tag, assets, release notes, approval, and non-canceling concurrency group.
 
@@ -106,10 +105,10 @@ Each version receives its own tag, assets, release notes, approval, and non-canc
 Wait until the source release is published, then run the separate Homebrew checkpoint:
 
 ```sh
-just publish-homebrew v0.1.1
+just publish-homebrew v1.2.3
 ```
 
-The command confirms that GitHub reports a published, non-draft `tvanreenen/xkcdpass` release for that tag, then dispatches `tvanreenen/homebrew-tap/.github/workflows/publish-package.yml` on the tap's `main` branch with `package=xkcdpass` and the version. It uses your existing GitHub CLI login; this repository stores no tap credential. The distribution workflow remains independent and never dispatches the tap workflow.
+Replace the illustrative `v1.2.3` with the published source version. The command confirms that GitHub reports a published, non-draft `tvanreenen/xkcdpass` release for that tag, then dispatches `tvanreenen/homebrew-tap/.github/workflows/publish-package.yml` on the tap's `main` branch with `package=xkcdpass` and the version. It uses your existing GitHub CLI login; this repository stores no tap credential. The distribution workflow remains independent and never dispatches the tap workflow.
 
 The tap verifies the published archives and `checksums.txt`, renders the formula change, runs the Homebrew checks, and opens or reuses its pull request. Follow the dispatched run with:
 

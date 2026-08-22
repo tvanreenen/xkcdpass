@@ -1,4 +1,4 @@
-package generator
+package passphrase
 
 import (
 	"bytes"
