@@ -8,6 +8,7 @@ import (
 	"strings"
 )
 
+// ErrHelp indicates that Parse printed help at the user's request.
 var ErrHelp = errors.New("help requested")
 
 const (
@@ -20,18 +21,20 @@ const (
 	maxWordCount = 100
 )
 
-type Config struct {
-	WordCount int
-	Separator string
+// Options contains the validated command-line options.
+type Options struct {
+	WordCount   int
+	Separator   string
+	ShowVersion bool
 }
 
-func Parse(args []string, stderr io.Writer) (Config, bool, error) {
-	config := Config{
+// Parse parses and validates args, writing flag diagnostics and help to stderr.
+// It returns ErrHelp after printing requested help.
+func Parse(args []string, stderr io.Writer) (Options, error) {
+	options := Options{
 		WordCount: defaultWordCount,
 		Separator: "",
 	}
-
-	var showVersion bool
 
 	fs := flag.NewFlagSet("xkcdpass", flag.ContinueOnError)
 	fs.SetOutput(stderr)
@@ -46,36 +49,36 @@ func Parse(args []string, stderr io.Writer) (Config, bool, error) {
 	}
 
 	fs.IntVar(
-		&config.WordCount,
+		&options.WordCount,
 		"words",
-		config.WordCount,
+		options.WordCount,
 		fmt.Sprintf("number of words to generate (%d-%d)", minWordCount, maxWordCount),
 	)
-	fs.StringVar(&config.Separator, "separator", config.Separator, "string inserted between words (default: none, words are concatenated)")
-	fs.BoolVar(&showVersion, "version", false, "print the version and exit")
+	fs.StringVar(&options.Separator, "separator", options.Separator, "string inserted between words (default: none, words are concatenated)")
+	fs.BoolVar(&options.ShowVersion, "version", false, "print the version and exit")
 
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
-			return Config{}, false, ErrHelp
+			return Options{}, ErrHelp
 		}
-		return Config{}, false, err
+		return Options{}, err
 	}
 
 	if fs.NArg() != 0 {
-		return Config{}, false, fmt.Errorf("unexpected arguments: %s", strings.Join(fs.Args(), " "))
+		return Options{}, fmt.Errorf("unexpected arguments: %s", strings.Join(fs.Args(), " "))
 	}
 
-	if config.WordCount < minWordCount {
-		return Config{}, false, fmt.Errorf("--words must be at least %d", minWordCount)
+	if options.WordCount < minWordCount {
+		return Options{}, fmt.Errorf("--words must be at least %d", minWordCount)
 	}
 
-	if config.WordCount > maxWordCount {
-		return Config{}, false, fmt.Errorf("--words must be at most %d", maxWordCount)
+	if options.WordCount > maxWordCount {
+		return Options{}, fmt.Errorf("--words must be at most %d", maxWordCount)
 	}
 
-	if strings.ContainsAny(config.Separator, "\r\n") {
-		return Config{}, false, fmt.Errorf("--separator must not contain carriage returns or newlines")
+	if strings.ContainsAny(options.Separator, "\r\n") {
+		return Options{}, fmt.Errorf("--separator must not contain carriage returns or newlines")
 	}
 
-	return config, showVersion, nil
+	return options, nil
 }

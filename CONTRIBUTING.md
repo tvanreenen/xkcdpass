@@ -21,7 +21,7 @@ GOCACHE=$PWD/.gocache go build ./cmd/xkcdpass
 
 ## Tests
 
-Regular tests run with `go test ./...` and include validation of the embedded EFF wordlist. That means CI still checks:
+Regular tests run with `go test ./...` and include validation of the embedded EFF wordlist. A normal test run checks:
 
 - the list contains exactly 7,776 entries
 - entries are lowercase
@@ -37,13 +37,12 @@ Benchmarks are opt-in and do not run under a normal `go test ./...`.
 To run the benchmark coverage for the startup-sensitive paths:
 
 ```sh
-GOCACHE=$PWD/.gocache go test -bench . -benchmem ./internal/wordlist ./internal/generator
+GOCACHE=$PWD/.gocache go test -bench . -benchmem ./internal/wordlist ./internal/passphrase
 ```
 
 This runs:
 
 - `BenchmarkWords`
-- `BenchmarkValidate`
 - `BenchmarkGenerate4Words`
 
 To measure end-to-end CLI startup time locally:
@@ -53,13 +52,13 @@ GOCACHE=$PWD/.gocache go build -o xkcdpass ./cmd/xkcdpass
 time sh -c 'i=0; while [ $i -lt 500 ]; do ./xkcdpass >/dev/null; i=$((i+1)); done'
 ```
 
-The timing loop is only for manual performance checks. It is not part of the normal test suite or CI.
+The timing loop is only for manual performance checks. It is not part of the normal test suite or distribution workflow.
 
 ## Releases
 
 ### Repository setup for releases
 
-Before the first release, a repository administrator must complete two settings:
+Repository administrators should keep two release settings configured:
 
 1. Under **Settings → Environments**, create an environment named `release`. Restrict its deployment branches to the default `main` branch and configure the required reviewers. Preventing self-review is recommended when more than one maintainer is available.
 2. Under **Settings → General → Releases**, enable release immutability. GitHub applies this only to releases published after the setting is enabled.

@@ -11,21 +11,21 @@ import (
 func TestParseDefaults(t *testing.T) {
 	var stderr bytes.Buffer
 
-	config, showVersion, err := Parse(nil, &stderr)
+	options, err := Parse(nil, &stderr)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
 
-	if showVersion {
-		t.Fatal("showVersion = true, want false")
+	if options.ShowVersion {
+		t.Fatal("Options.ShowVersion = true, want false")
 	}
 
-	if config.WordCount != defaultWordCount {
-		t.Fatalf("default word count = %d, want %d", config.WordCount, defaultWordCount)
+	if options.WordCount != defaultWordCount {
+		t.Fatalf("default word count = %d, want %d", options.WordCount, defaultWordCount)
 	}
 
-	if config.Separator != "" {
-		t.Fatalf("default separator = %q, want %q", config.Separator, "")
+	if options.Separator != "" {
+		t.Fatalf("default separator = %q, want %q", options.Separator, "")
 	}
 }
 
@@ -34,15 +34,15 @@ func TestParseAcceptsWordCountBoundaries(t *testing.T) {
 		t.Run(strconv.Itoa(wordCount), func(t *testing.T) {
 			var stderr bytes.Buffer
 
-			config, _, err := Parse(
+			options, err := Parse(
 				[]string{"--words", strconv.Itoa(wordCount)},
 				&stderr,
 			)
 			if err != nil {
 				t.Fatalf("Parse() error = %v", err)
 			}
-			if config.WordCount != wordCount {
-				t.Fatalf("word count = %d, want %d", config.WordCount, wordCount)
+			if options.WordCount != wordCount {
+				t.Fatalf("word count = %d, want %d", options.WordCount, wordCount)
 			}
 			if stderr.Len() != 0 {
 				t.Fatalf("stderr = %q, want empty output", stderr.String())
@@ -73,7 +73,7 @@ func TestParseRejectsWordCountsOutsideBoundaries(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var stderr bytes.Buffer
 
-			_, _, err := Parse(
+			_, err := Parse(
 				[]string{"--words", strconv.Itoa(tt.wordCount)},
 				&stderr,
 			)
@@ -94,7 +94,7 @@ func TestParseRejectsOverflowingWordCount(t *testing.T) {
 	var stderr bytes.Buffer
 	const overflowingInt = "9223372036854775808"
 
-	_, _, err := Parse([]string{"--words", overflowingInt}, &stderr)
+	_, err := Parse([]string{"--words", overflowingInt}, &stderr)
 	if err == nil {
 		t.Fatal("Parse() error = nil, want error")
 	}
@@ -109,7 +109,7 @@ func TestParseRejectsOverflowingWordCount(t *testing.T) {
 func TestParseHelpDocumentsWordCountRange(t *testing.T) {
 	var stderr bytes.Buffer
 
-	_, _, err := Parse([]string{"--help"}, &stderr)
+	_, err := Parse([]string{"--help"}, &stderr)
 	if !errors.Is(err, ErrHelp) {
 		t.Fatalf("Parse() error = %v, want %v", err, ErrHelp)
 	}
@@ -121,12 +121,12 @@ func TestParseHelpDocumentsWordCountRange(t *testing.T) {
 func TestParseVersionFlag(t *testing.T) {
 	var stderr bytes.Buffer
 
-	_, showVersion, err := Parse([]string{"--version"}, &stderr)
+	options, err := Parse([]string{"--version"}, &stderr)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
 
-	if !showVersion {
-		t.Fatal("showVersion = false, want true")
+	if !options.ShowVersion {
+		t.Fatal("Options.ShowVersion = false, want true")
 	}
 }

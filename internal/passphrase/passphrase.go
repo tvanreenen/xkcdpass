@@ -1,4 +1,6 @@
-package generator
+// Package passphrase generates passphrases from caller-provided words and
+// cryptographically secure randomness.
+package passphrase
 
 import (
 	"crypto/rand"
@@ -8,6 +10,9 @@ import (
 	"strings"
 )
 
+// Generate selects wordCount independent, uniformly random words and joins
+// them with separator. The random reader must provide cryptographically secure
+// randomness when the result will be used as a secret.
 func Generate(random io.Reader, words []string, wordCount int, separator string) (string, error) {
 	if len(words) == 0 {
 		return "", fmt.Errorf("word list is empty")
