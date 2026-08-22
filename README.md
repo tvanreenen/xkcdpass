@@ -43,6 +43,8 @@ xkcdpass --separator -
 xkcdpass --separator _
 ```
 
+`--words` accepts values from 1 through 100 (default: 4). The upper bound keeps entropy work and output allocation bounded; 100 words from the embedded list already represent roughly 1,290 bits of search space, far beyond practical passphrase use.
+
 Sample output (default: no separator):
 
 ```text
