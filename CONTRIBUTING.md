@@ -80,13 +80,13 @@ Use build mode as the release dry run: dispatch it from the intended `main` comm
 
 ### Publishing a release
 
-Open **Actions → Distribution → Run workflow**, select the default `main` branch, choose `release`, and enter a release version. The equivalent CLI dispatch is:
+From a current `main` checkout, dispatch the source release with:
 
 ```sh
-gh workflow run distribution.yml --ref main -f operation=release -f version=v0.1.1
+just release v0.1.1
 ```
 
-Release versions must be valid v-prefixed Semantic Versions such as `v0.1.1`, `v0.1.1-rc.1`, or `v0.1.1-rc.1+build.2`. Leading zeroes, missing components, whitespace, and unsafe tag characters are rejected before any release write. Release dispatches from branches or tags other than the repository's default branch are also rejected.
+This validates the version locally and dispatches `distribution.yml` on `main` through your existing GitHub CLI login. You can also open **Actions → Distribution → Run workflow**, select `main`, choose `release`, and enter the version. Release versions must be valid v-prefixed Semantic Versions such as `v0.1.1`, `v0.1.1-rc.1`, or `v0.1.1-rc.1+build.2`. Leading zeroes, missing components, whitespace, and unsafe tag characters are rejected before any release write. Release dispatches from branches or tags other than the repository's default branch are also rejected.
 
 After the build artifact is uploaded, the publishing job waits for approval on the `release` environment. Before approving, confirm the requested version, workflow commit, and completed build logs. The publishing job uses only the archives and checksum file uploaded by that same workflow run. It does not rebuild, download from an earlier run, update another repository, or use checkout credentials to push.
 
@@ -101,4 +101,20 @@ For extra validation, an optional release sequence is:
 
 Each version receives its own tag, assets, release notes, approval, and non-canceling concurrency group.
 
-Homebrew tap automation is intentionally deferred to PR 4. This workflow does not update the tap and must not be given a cross-repository token.
+### Publishing the Homebrew update
+
+Wait until the source release is published, then run the separate Homebrew checkpoint:
+
+```sh
+just publish-homebrew v0.1.1
+```
+
+The command confirms that GitHub reports a published, non-draft `tvanreenen/xkcdpass` release for that tag, then dispatches `tvanreenen/homebrew-tap/.github/workflows/publish-package.yml` on the tap's `main` branch with `package=xkcdpass` and the version. It uses your existing GitHub CLI login; this repository stores no tap credential. The distribution workflow remains independent and never dispatches the tap workflow.
+
+The tap verifies the published archives and `checksums.txt`, renders the formula change, runs the Homebrew checks, and opens or reuses its pull request. Follow the dispatched run with:
+
+```sh
+gh run list --repo tvanreenen/homebrew-tap --workflow publish-package.yml
+```
+
+If the source release is still a draft or missing, finish or rerun `just release` and wait for publication before retrying the Homebrew command. If tap verification finds a problem in an immutable source release, publish a new version and dispatch that version instead. For a transient tap or Homebrew failure, rerun `just publish-homebrew` with the same published version; do not rebuild or edit the source release.
