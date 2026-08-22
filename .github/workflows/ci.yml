@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Go 1.26.7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # go.mod declares the minimum; CI uses the distribution's exact patched compiler.
+          go-version: '1.26.7'
+
+      - name: Check Go formatting
+        run: |
+          set -euo pipefail
+
+          unformatted="$(git ls-files -z -- '*.go' | xargs -0 gofmt -l)"
+          if [[ -n "${unformatted}" ]]; then
+            echo "The following Go files need gofmt:" >&2
+            echo "${unformatted}" >&2
+            exit 1
+          fi
+
+      - name: Test
+        run: go test ./...
+
+      - name: Test with the race detector
+        run: go test -race ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build
+        run: go build ./cmd/xkcdpass
+
+      - name: Lint shell scripts
+        run: shellcheck -x -P scripts .github/scripts/*.sh scripts/*.sh
+
+      - name: Install just 1.57.0
+        uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
+        with:
+          tool: just@1.57.0
+          fallback: none
+
+      - name: Test release commands
+        run: ./scripts/test-release-commands.sh
