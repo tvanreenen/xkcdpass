@@ -2,74 +2,41 @@ package app
 
 import (
 	"bytes"
+	"errors"
 	"strings"
 	"testing"
-
-	"github.com/tvanreenen/xkcdpass/internal/wordlist"
 )
 
-type segKey struct {
-	pos, left int
+type failingReader struct {
+	err error
 }
 
-func canSegmentIntoNEmbeddedWords(t *testing.T, s string, wantWords int) bool {
-	t.Helper()
-	words := wordlist.Words()
-	byFirst := make(map[byte][]string, 32)
-	for _, w := range words {
-		if w == "" {
-			continue
-		}
-		byFirst[w[0]] = append(byFirst[w[0]], w)
-	}
-	memo := make(map[segKey]bool)
-	var try func(pos, left int) bool
-	try = func(pos, left int) bool {
-		if left == 0 {
-			return pos == len(s)
-		}
-		if pos >= len(s) {
-			return false
-		}
-		k := segKey{pos, left}
-		if v, ok := memo[k]; ok {
-			return v
-		}
-		for _, w := range byFirst[s[pos]] {
-			lw := len(w)
-			if pos+lw > len(s) {
-				continue
-			}
-			if s[pos:pos+lw] != w {
-				continue
-			}
-			if try(pos+lw, left-1) {
-				memo[k] = true
-				return true
-			}
-		}
-		memo[k] = false
-		return false
-	}
-	return try(0, wantWords)
+func (r failingReader) Read([]byte) (int, error) {
+	return 0, r.err
 }
 
-func TestRunDefaultOutputShape(t *testing.T) {
+func words(items ...string) func() []string {
+	return func() []string { return items }
+}
+
+func TestRunDefaultOutput(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 
-	exitCode := Run(nil, &stdout, &stderr, "test")
+	exitCode := run(
+		nil,
+		&stdout,
+		&stderr,
+		"test",
+		bytes.NewReader([]byte{0, 1, 2, 0}),
+		words("alpha", "bravo", "charlie"),
+	)
 	if exitCode != 0 {
 		t.Fatalf("Run() exit code = %d, want 0", exitCode)
 	}
 
-	output := strings.TrimSpace(stdout.String())
-	if output == "" {
-		t.Fatal("expected passphrase output")
-	}
-
-	if !canSegmentIntoNEmbeddedWords(t, output, 4) {
-		t.Fatalf("output is not 4 embedded-list words concatenated: %q", output)
+	if want := "alphabravocharliealpha\n"; stdout.String() != want {
+		t.Fatalf("stdout = %q, want %q", stdout.String(), want)
 	}
 
 	if stderr.Len() != 0 {
@@ -81,18 +48,50 @@ func TestRunWithWordsFlag(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 
-	exitCode := Run([]string{"--words", "6"}, &stdout, &stderr, "test")
+	exitCode := run(
+		[]string{"--words", "6", "--separator", "/"},
+		&stdout,
+		&stderr,
+		"test",
+		bytes.NewReader([]byte{2, 1, 0, 2, 1, 0}),
+		words("alpha", "bravo", "charlie"),
+	)
 	if exitCode != 0 {
 		t.Fatalf("Run() exit code = %d, want 0", exitCode)
 	}
 
-	output := strings.TrimSpace(stdout.String())
-	if !canSegmentIntoNEmbeddedWords(t, output, 6) {
-		t.Fatalf("output is not 6 embedded-list words concatenated: %q", output)
+	if want := "charlie/bravo/alpha/charlie/bravo/alpha\n"; stdout.String() != want {
+		t.Fatalf("stdout = %q, want %q", stdout.String(), want)
 	}
 
 	if stderr.Len() != 0 {
 		t.Fatalf("unexpected stderr output: %q", stderr.String())
+	}
+}
+
+func TestRunReportsGenerationFailure(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	entropyErr := errors.New("entropy unavailable")
+
+	exitCode := run(
+		nil,
+		&stdout,
+		&stderr,
+		"test",
+		failingReader{err: entropyErr},
+		words("alpha", "bravo"),
+	)
+	if exitCode != 1 {
+		t.Fatalf("Run() exit code = %d, want 1", exitCode)
+	}
+
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want empty output", stdout.String())
+	}
+
+	if want := "xkcdpass: generate secure random index: entropy unavailable\n"; stderr.String() != want {
+		t.Fatalf("stderr = %q, want %q", stderr.String(), want)
 	}
 }
 
