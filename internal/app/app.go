@@ -12,6 +12,16 @@ import (
 )
 
 func Run(args []string, stdout, stderr io.Writer, version string) int {
+	return run(args, stdout, stderr, version, rand.Reader, wordlist.Words)
+}
+
+func run(
+	args []string,
+	stdout, stderr io.Writer,
+	version string,
+	random io.Reader,
+	loadWords func() []string,
+) int {
 	config, showVersion, err := cli.Parse(args, stderr)
 	if err != nil {
 		if errors.Is(err, cli.ErrHelp) {
@@ -27,8 +37,7 @@ func Run(args []string, stdout, stderr io.Writer, version string) int {
 		return 0
 	}
 
-	words := wordlist.Words()
-	passphrase, err := generator.Generate(rand.Reader, words, config.Words, config.Separator)
+	passphrase, err := generator.Generate(random, loadWords(), config.Words, config.Separator)
 	if err != nil {
 		fmt.Fprintf(stderr, "xkcdpass: %v\n", err)
 		return 1
