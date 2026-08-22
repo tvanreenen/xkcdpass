@@ -37,7 +37,7 @@ func run(
 		return 0
 	}
 
-	passphrase, err := generator.Generate(random, loadWords(), config.Words, config.Separator)
+	passphrase, err := generator.Generate(random, loadWords(), config.WordCount, config.Separator)
 	if err != nil {
 		fmt.Fprintf(stderr, "xkcdpass: %v\n", err)
 		return 1

@@ -20,8 +20,8 @@ func TestParseDefaults(t *testing.T) {
 		t.Fatal("showVersion = true, want false")
 	}
 
-	if config.Words != defaultWordCount {
-		t.Fatalf("default words = %d, want %d", config.Words, defaultWordCount)
+	if config.WordCount != defaultWordCount {
+		t.Fatalf("default word count = %d, want %d", config.WordCount, defaultWordCount)
 	}
 
 	if config.Separator != "" {
@@ -41,8 +41,8 @@ func TestParseAcceptsWordCountBoundaries(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Parse() error = %v", err)
 			}
-			if config.Words != wordCount {
-				t.Fatalf("words = %d, want %d", config.Words, wordCount)
+			if config.WordCount != wordCount {
+				t.Fatalf("word count = %d, want %d", config.WordCount, wordCount)
 			}
 			if stderr.Len() != 0 {
 				t.Fatalf("stderr = %q, want empty output", stderr.String())

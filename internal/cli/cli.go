@@ -21,13 +21,13 @@ const (
 )
 
 type Config struct {
-	Words     int
+	WordCount int
 	Separator string
 }
 
 func Parse(args []string, stderr io.Writer) (Config, bool, error) {
 	config := Config{
-		Words:     defaultWordCount,
+		WordCount: defaultWordCount,
 		Separator: "",
 	}
 
@@ -46,9 +46,9 @@ func Parse(args []string, stderr io.Writer) (Config, bool, error) {
 	}
 
 	fs.IntVar(
-		&config.Words,
+		&config.WordCount,
 		"words",
-		config.Words,
+		config.WordCount,
 		fmt.Sprintf("number of words to generate (%d-%d)", minWordCount, maxWordCount),
 	)
 	fs.StringVar(&config.Separator, "separator", config.Separator, "string inserted between words (default: none, words are concatenated)")
@@ -65,11 +65,11 @@ func Parse(args []string, stderr io.Writer) (Config, bool, error) {
 		return Config{}, false, fmt.Errorf("unexpected arguments: %s", strings.Join(fs.Args(), " "))
 	}
 
-	if config.Words < minWordCount {
+	if config.WordCount < minWordCount {
 		return Config{}, false, fmt.Errorf("--words must be at least %d", minWordCount)
 	}
 
-	if config.Words > maxWordCount {
+	if config.WordCount > maxWordCount {
 		return Config{}, false, fmt.Errorf("--words must be at most %d", maxWordCount)
 	}
 
