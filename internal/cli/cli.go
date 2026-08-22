@@ -10,6 +10,16 @@ import (
 
 var ErrHelp = errors.New("help requested")
 
+const (
+	defaultWordCount = 4
+	minWordCount     = 1
+
+	// maxWordCount bounds entropy work and output allocation for the interactive
+	// CLI. One hundred words from the embedded list already provide roughly
+	// 1,290 bits of search space, far beyond practical passphrase use.
+	maxWordCount = 100
+)
+
 type Config struct {
 	Words     int
 	Separator string
@@ -17,7 +27,7 @@ type Config struct {
 
 func Parse(args []string, stderr io.Writer) (Config, bool, error) {
 	config := Config{
-		Words:     4,
+		Words:     defaultWordCount,
 		Separator: "",
 	}
 
@@ -35,7 +45,12 @@ func Parse(args []string, stderr io.Writer) (Config, bool, error) {
 		fs.PrintDefaults()
 	}
 
-	fs.IntVar(&config.Words, "words", config.Words, "number of words to generate")
+	fs.IntVar(
+		&config.Words,
+		"words",
+		config.Words,
+		fmt.Sprintf("number of words to generate (%d-%d)", minWordCount, maxWordCount),
+	)
 	fs.StringVar(&config.Separator, "separator", config.Separator, "string inserted between words (default: none, words are concatenated)")
 	fs.BoolVar(&showVersion, "version", false, "print the version and exit")
 
@@ -50,8 +65,12 @@ func Parse(args []string, stderr io.Writer) (Config, bool, error) {
 		return Config{}, false, fmt.Errorf("unexpected arguments: %s", strings.Join(fs.Args(), " "))
 	}
 
-	if config.Words < 1 {
-		return Config{}, false, fmt.Errorf("--words must be at least 1")
+	if config.Words < minWordCount {
+		return Config{}, false, fmt.Errorf("--words must be at least %d", minWordCount)
+	}
+
+	if config.Words > maxWordCount {
+		return Config{}, false, fmt.Errorf("--words must be at most %d", maxWordCount)
 	}
 
 	if strings.ContainsAny(config.Separator, "\r\n") {

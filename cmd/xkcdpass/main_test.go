@@ -44,6 +44,9 @@ func TestExecutableHelp(t *testing.T) {
 	if !strings.Contains(stderr, "Usage:\n  xkcdpass [--words N] [--separator SEP]") {
 		t.Errorf("stderr = %q, want usage text", stderr)
 	}
+	if !strings.Contains(stderr, "number of words to generate (1-100)") {
+		t.Errorf("stderr = %q, want word-count range", stderr)
+	}
 }
 
 func TestExecutableVersion(t *testing.T) {
@@ -61,16 +64,37 @@ func TestExecutableVersion(t *testing.T) {
 }
 
 func TestExecutableInvalidInput(t *testing.T) {
-	stdout, stderr, exitCode := runExecutable(t, "--words", "0")
+	tests := []struct {
+		name       string
+		wordCount  string
+		wantStderr string
+	}{
+		{
+			name:       "below minimum",
+			wordCount:  "0",
+			wantStderr: "xkcdpass: --words must be at least 1\n",
+		},
+		{
+			name:       "above maximum",
+			wordCount:  "101",
+			wantStderr: "xkcdpass: --words must be at most 100\n",
+		},
+	}
 
-	if exitCode != 2 {
-		t.Fatalf("exit code = %d, want 2; stderr=%q", exitCode, stderr)
-	}
-	if stdout != "" {
-		t.Errorf("stdout = %q, want empty output", stdout)
-	}
-	if !strings.Contains(stderr, "xkcdpass: --words must be at least 1") {
-		t.Errorf("stderr = %q, want invalid-input message", stderr)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stdout, stderr, exitCode := runExecutable(t, "--words", tt.wordCount)
+
+			if exitCode != 2 {
+				t.Fatalf("exit code = %d, want 2; stderr=%q", exitCode, stderr)
+			}
+			if stdout != "" {
+				t.Errorf("stdout = %q, want empty output", stdout)
+			}
+			if stderr != tt.wantStderr {
+				t.Errorf("stderr = %q, want %q", stderr, tt.wantStderr)
+			}
+		})
 	}
 }
 

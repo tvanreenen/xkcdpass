@@ -128,21 +128,54 @@ func TestRunVersion(t *testing.T) {
 	}
 }
 
-func TestRunRejectsInvalidWords(t *testing.T) {
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-
-	exitCode := Run([]string{"--words", "0"}, &stdout, &stderr, "test")
-	if exitCode != 2 {
-		t.Fatalf("Run() exit code = %d, want 2", exitCode)
+func TestRunRejectsInvalidWordsBeforeGeneration(t *testing.T) {
+	tests := []struct {
+		name       string
+		wordCount  string
+		wantStderr string
+	}{
+		{
+			name:       "below minimum",
+			wordCount:  "0",
+			wantStderr: "xkcdpass: --words must be at least 1\n",
+		},
+		{
+			name:       "above maximum",
+			wordCount:  "101",
+			wantStderr: "xkcdpass: --words must be at most 100\n",
+		},
 	}
 
-	if !strings.Contains(stderr.String(), "must be at least 1") {
-		t.Fatalf("unexpected stderr output: %q", stderr.String())
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var stdout bytes.Buffer
+			var stderr bytes.Buffer
+			loadedWords := false
 
-	if stdout.Len() != 0 {
-		t.Fatalf("unexpected stdout output: %q", stdout.String())
+			exitCode := run(
+				[]string{"--words", tt.wordCount},
+				&stdout,
+				&stderr,
+				"test",
+				bytes.NewReader(nil),
+				func() []string {
+					loadedWords = true
+					return []string{"alpha"}
+				},
+			)
+			if exitCode != 2 {
+				t.Fatalf("run() exit code = %d, want 2", exitCode)
+			}
+			if loadedWords {
+				t.Fatal("run() loaded words for invalid input")
+			}
+			if stdout.Len() != 0 {
+				t.Fatalf("stdout = %q, want empty output", stdout.String())
+			}
+			if stderr.String() != tt.wantStderr {
+				t.Fatalf("stderr = %q, want %q", stderr.String(), tt.wantStderr)
+			}
+		})
 	}
 }
 
