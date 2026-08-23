@@ -99,7 +99,7 @@ add_remote_asset() {
 }
 
 run_publisher() {
-  local requested_version="${1:-${version}}"
+  local requested_version="$1"
   GITHUB_REPOSITORY="tvanreenen/xkcdpass" \
     MOCK_GH_FAIL_UPLOAD="${mock_fail_upload:-}" \
     MOCK_GH_LOG="${case_log}" \
@@ -153,7 +153,7 @@ assert_complete_published_release() {
 # A fresh version creates a draft, creates the target tag, uploads only the
 # allowlisted assets, and publishes after the final state verification.
 new_case fresh
-run_publisher > "${case_dir}/stdout" 2> "${case_dir}/stderr"
+run_publisher "${version}" > "${case_dir}/stdout" 2> "${case_dir}/stderr"
 assert_log "$(printf 'create\t%s\t%s\nupload\txkcdpass_%s_darwin_arm64.tar.gz\nupload\txkcdpass_%s_linux_amd64.tar.gz\nupload\tchecksums.txt\npublish\t%s' \
   "${version}" "${target_sha}" "${version}" "${version}" "${version}")"
 [[ "$(jq -r '.object.sha' "${case_state}/tag.json")" == "${target_sha}" ]] ||
@@ -163,7 +163,7 @@ assert_complete_published_release
 # A repeat after success is safely idempotent: the immutable published state is
 # refused and no create, upload, or edit mutation is attempted.
 fresh_log="$(cat "${case_log}")"
-assert_failure "published rerun" run_publisher
+assert_failure "published rerun" run_publisher "${version}"
 [[ "$(cat "${case_log}")" == "${fresh_log}" ]] ||
   fail "published rerun changed remote state"
 
@@ -177,7 +177,7 @@ linux_asset="xkcdpass_${version}_linux_amd64.tar.gz"
 add_remote_asset "${darwin_asset}" uploaded "$(asset_digest "${case_dist}/${darwin_asset}")"
 add_remote_asset "${linux_asset}" uploaded 'sha256:0000000000000000000000000000000000000000000000000000000000000000'
 add_remote_asset checksums.txt new "$(asset_digest "${case_dist}/checksums.txt")"
-run_publisher > "${case_dir}/stdout" 2> "${case_dir}/stderr"
+run_publisher "${version}" > "${case_dir}/stdout" 2> "${case_dir}/stderr"
 assert_log "$(printf 'upload\t%s\nupload\tchecksums.txt\npublish\t%s' "${linux_asset}" "${version}")"
 assert_complete_published_release
 
@@ -186,14 +186,14 @@ assert_complete_published_release
 new_case published
 seed_release false "${target_sha}" "${version}" "${release_note_marker}" false
 seed_tag "${target_sha}"
-assert_failure "published release" run_publisher
+assert_failure "published release" run_publisher "${version}"
 assert_log ""
 
 new_case unexpected-asset
 seed_release true "${target_sha}" "${version}" "${release_note_marker}" false
 seed_tag "${target_sha}"
 add_remote_asset notes.txt uploaded 'sha256:0000000000000000000000000000000000000000000000000000000000000000'
-assert_failure "unexpected draft asset" run_publisher
+assert_failure "unexpected draft asset" run_publisher "${version}"
 assert_log ""
 
 reject_draft() {
@@ -207,7 +207,7 @@ reject_draft() {
   new_case "${case_name}"
   seed_release true "${release_target}" "${title}" "${body}" "${prerelease}"
   seed_tag "${tag_target}"
-  assert_failure "${case_name}" run_publisher
+  assert_failure "${case_name}" run_publisher "${version}"
   assert_log ""
 }
 
@@ -223,14 +223,14 @@ new_case interrupted-upload
 seed_release true "${target_sha}" "${version}" "${release_note_marker}" false
 seed_tag "${target_sha}"
 mock_fail_upload="${linux_asset}"
-assert_failure "interrupted upload" run_publisher
+assert_failure "interrupted upload" run_publisher "${version}"
 assert_no_publish
 [[ "$(jq -r '.draft' "${case_state}/release.json")" == "true" ]] ||
   fail "interrupted upload did not leave a draft"
 [[ "$(jq -r '.assets | length' "${case_state}/release.json")" == "1" ]] ||
   fail "interrupted upload did not preserve exactly the completed asset"
 mock_fail_upload=""
-run_publisher > "${case_dir}/stdout-rerun" 2> "${case_dir}/stderr-rerun"
+run_publisher "${version}" > "${case_dir}/stdout-rerun" 2> "${case_dir}/stderr-rerun"
 [[ "$(grep -c $'^upload\txkcdpass_.*_darwin_arm64.tar.gz$' "${case_log}")" == "1" ]] ||
   fail "reconciliation replaced an already-correct asset"
 assert_complete_published_release
