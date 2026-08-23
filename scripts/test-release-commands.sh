@@ -34,7 +34,7 @@ for version in "${valid_versions[@]}"; do
   validate_release_version "${version}" || fail "valid version was rejected: ${version}"
 done
 for version in "${invalid_versions[@]}"; do
-  if validate_release_version "${version}"; then
+  if validate_release_version "${version}" 2>/dev/null; then
     fail "invalid version was accepted: ${version}"
   fi
 done

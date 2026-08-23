@@ -31,44 +31,56 @@ jobs:
       artifact_name: ${{ steps.distribution.outputs.artifact_name }}
 
     steps:
-      - name: Validate distribution request
-        id: distribution
+      - name: Validate distribution source
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           OPERATION: ${{ inputs.operation }}
           REF: ${{ github.ref }}
-          RELEASE_VERSION: ${{ inputs.version }}
-          SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
 
-          if [[ "${OPERATION}" == "build" ]]; then
-            version="dev-${SHA}"
-          elif [[ "${OPERATION}" == "release" ]]; then
-            semver='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(\+([0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*))?$'
-            if [[ ! "${RELEASE_VERSION}" =~ ${semver} ]]; then
-              echo "release version must be a valid v-prefixed Semantic Version" >&2
-              exit 1
-            fi
-            if [[ "${REF}" != "refs/heads/${DEFAULT_BRANCH}" ]]; then
-              echo "releases must be dispatched from the default branch (${DEFAULT_BRANCH})" >&2
-              exit 1
-            fi
-            version="${RELEASE_VERSION}"
-          else
+          if [[ "${OPERATION}" == "release" && "${REF}" != "refs/heads/${DEFAULT_BRANCH}" ]]; then
+            echo "releases must be dispatched from the default branch (${DEFAULT_BRANCH})" >&2
+            exit 1
+          fi
+          if [[ "${OPERATION}" != "build" && "${OPERATION}" != "release" ]]; then
             echo "unsupported distribution operation: ${OPERATION}" >&2
             exit 1
           fi
-
-          echo "version=${version}" >> "${GITHUB_OUTPUT}"
-          echo "goreleaser_version=${version#v}" >> "${GITHUB_OUTPUT}"
-          echo "artifact_name=xkcdpass_${version}" >> "${GITHUB_OUTPUT}"
 
       - name: Check out selected commit
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Validate distribution request
+        id: distribution
+        env:
+          OPERATION: ${{ inputs.operation }}
+          RELEASE_VERSION: ${{ inputs.version }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          # shellcheck source=scripts/release-version.sh
+          source ./scripts/release-version.sh
+
+          if [[ "${OPERATION}" == "build" ]]; then
+            version="dev-${SHA}"
+          elif [[ "${OPERATION}" == "release" ]]; then
+            validate_release_version "${RELEASE_VERSION}"
+            version="${RELEASE_VERSION}"
+          else
+            echo "unsupported distribution operation: ${OPERATION}" >&2
+            exit 1
+          fi
+
+          {
+            echo "version=${version}"
+            echo "goreleaser_version=${version#v}"
+            echo "artifact_name=xkcdpass_${version}"
+          } >> "${GITHUB_OUTPUT}"
 
       - name: Set up Go 1.26.7
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0

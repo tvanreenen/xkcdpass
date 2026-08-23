@@ -57,7 +57,7 @@ jobs:
         run: go build ./cmd/xkcdpass
 
       - name: Lint shell scripts
-        run: shellcheck -x -P scripts .github/scripts/*.sh scripts/*.sh
+        run: shellcheck -x -P scripts .github/scripts/*.sh scripts/*.sh scripts/testdata/*.sh
 
       - name: Install just 1.57.0
         env:
@@ -81,3 +81,6 @@ jobs:
         run: |
           [[ "$(just --version)" == "just 1.57.0" ]]
           ./scripts/test-release-commands.sh
+
+      - name: Test release publisher
+        run: ./scripts/test-publish-release.sh
