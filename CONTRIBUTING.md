@@ -30,6 +30,12 @@ Regular tests run with `go test ./...` and include validation of the embedded EF
 
 These checks run as normal tests; you do not need to do anything special to enable them.
 
+## Automated validation
+
+GitHub Actions automatically validates pull requests targeting `main` and pushes to `main`. The read-only CI workflow checks Go formatting, runs the regular and race-detector test suites, runs `go vet`, builds the command, lints the shell scripts, and tests the maintainer release commands.
+
+CI does not create distribution archives, tags, releases, or Homebrew updates. Development distributions and source releases remain explicit, manually dispatched operations in the separate Distribution workflow, and Homebrew publication remains a separate maintainer checkpoint.
+
 ## Benchmarks and timing
 
 Benchmarks are opt-in and do not run under a normal `go test ./...`.
