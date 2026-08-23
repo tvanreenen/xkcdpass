@@ -16,8 +16,7 @@ if [[ $# -ne 1 ]]; then
 fi
 
 version="$1"
-validate_release_version "${version}" ||
-  fail "version must be a valid v-prefixed Semantic Version"
+validate_release_version "${version}" || exit 1
 command -v gh >/dev/null 2>&1 || fail "gh CLI is required"
 
 release_details=""

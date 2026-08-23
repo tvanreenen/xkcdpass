@@ -17,10 +17,12 @@ dist_dir="$3"
 repository="${GITHUB_REPOSITORY:-}"
 api_header="X-GitHub-Api-Version: 2026-03-10"
 release_note_marker='<!-- xkcdpass distribution workflow -->'
-semver='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(\+([0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*))?$'
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "${script_dir}/../.." && pwd)"
+# shellcheck source=release-version.sh
+source "${repo_root}/scripts/release-version.sh"
 
-[[ "${version}" =~ ${semver} ]] ||
-  fail "release version must be a valid v-prefixed Semantic Version"
+validate_release_version "${version}" || exit 1
 [[ "${target_sha}" =~ ^[0-9a-f]{40}$ ]] || fail "invalid target commit: ${target_sha}"
 [[ "${repository}" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] ||
   fail "invalid GITHUB_REPOSITORY: ${repository}"
@@ -267,8 +269,9 @@ fi
 
 for asset in "${expected_assets[@]}"; do
   local_digest="$(asset_digest "${dist_dir}/${asset}")"
+  remote_state="$(jq -r --arg name "${asset}" '.assets[] | select(.name == $name) | .state' "${release_json}")"
   remote_digest="$(jq -r --arg name "${asset}" '.assets[] | select(.name == $name) | .digest // ""' "${release_json}")"
-  if [[ "${remote_digest}" == "${local_digest}" ]]; then
+  if [[ "${remote_state}" == "uploaded" && "${remote_digest}" == "${local_digest}" ]]; then
     continue
   fi
   gh release upload "${version}" "${dist_dir}/${asset}" --clobber

@@ -6,6 +6,7 @@ default:
 test:
     go test ./...
     ./scripts/test-release-commands.sh
+    ./scripts/test-publish-release.sh
 
 build:
     go build ./cmd/xkcdpass
