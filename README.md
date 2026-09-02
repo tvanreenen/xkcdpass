@@ -21,7 +21,7 @@ brew install xkcdpass
 
 Published Homebrew release artifacts are currently available for:
 
-- macOS Apple Silicon (`darwin/arm64`)
+- macOS 13 Ventura or later on Apple Silicon (`darwin/arm64`)
 - Linux x86_64 (`linux/amd64`), including typical x86_64 WSL environments
 
 For other platforms, build from source locally:
